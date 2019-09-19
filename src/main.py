@@ -57,7 +57,16 @@ def put_document(presigned_url):
 
 
 def post_predictions(document_id, model_name):
-    body = json.dumps({'documentId': document_id, 'modelName': model_name}).encode()
+    if model_name == 'match_receipts':
+        body = json.dumps({
+            'documentIds': [document_id],
+            'modelName': model_name,
+            'transactions': {'t1': {'total_amount': args.total_amount}},
+            'matchingFields': ['total_amount'],
+            'matchingStrategy': {}
+        }).encode()
+    else:
+        body = json.dumps({'documentId': document_id, 'modelName': model_name}).encode()
     uri, headers = create_signing_headers('POST', '/predictions', body)
 
     post_predictions_response = requests.post(
@@ -89,6 +98,12 @@ def receipt_prediction():
     print(json.dumps(predictions, indent=2))
 
 
+def match_receipts_prediction():
+    document_id = upload_document()
+    predictions = post_predictions(document_id, 'match_receipts')
+    print(json.dumps(predictions, indent=2))
+
+
 def document_split():
     document_id = upload_document()
     predictions = post_predictions(document_id, 'documentSplit')
@@ -106,7 +121,7 @@ if __name__ == '__main__':
 
     invoice_prediction_parser = subparsers.add_parser('invoice_prediction')
     invoice_prediction_parser.add_argument('document_path', help='Path to document to make predictions on')
-    invoice_prediction_parser.add_argument('content_type', choices={'image/jpeg', 'application/pdf'},
+    invoice_prediction_parser.add_argument('content_type', choices={'image/jpeg', 'application/pdf', 'image/png'},
                                            help='Content-Type of document to make predictions on')
     invoice_prediction_parser.add_argument('--consent_id', default='1234',
                                            help='Consent ID is typically a mapping from end user to a unique identifier')
@@ -114,11 +129,20 @@ if __name__ == '__main__':
 
     receipt_prediction_parser = subparsers.add_parser('receipt_prediction')
     receipt_prediction_parser.add_argument('document_path', help='Path to document to make predictions on')
-    receipt_prediction_parser.add_argument('content_type', choices={'image/jpeg', 'application/pdf'},
+    receipt_prediction_parser.add_argument('content_type', choices={'image/jpeg', 'application/pdf', 'image/png'},
                                            help='Content-Type of document to make predictions on')
     receipt_prediction_parser.add_argument('--consent_id', default='1234',
                                            help='Consent ID is typically a mapping from end user to a unique identifier')
     receipt_prediction_parser.set_defaults(cmd=receipt_prediction)
+
+    match_receipts_prediction_parser = subparsers.add_parser('match_receipts_prediction')
+    match_receipts_prediction_parser.add_argument('document_path', help='Path to document to make predictions on')
+    match_receipts_prediction_parser.add_argument('content_type', choices={'image/jpeg', 'application/pdf', 'image/png'},
+                                                  help='Content-Type of document to make predictions on')
+    match_receipts_prediction_parser.add_argument('--total_amount', help='The expected total_amount')
+    match_receipts_prediction_parser.add_argument('--consent_id', default='1234',
+                                                  help='Consent ID is typically a mapping from end user to a unique identifier')
+    match_receipts_prediction_parser.set_defaults(cmd=match_receipts_prediction)
 
     document_split_parser = subparsers.add_parser('document_split')
     document_split_parser.add_argument('document_path', help='Path to document to split')
